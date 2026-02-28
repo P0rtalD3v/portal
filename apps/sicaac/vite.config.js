@@ -12,30 +12,32 @@ function serveVendorPlugin() {
     name: 'serve-vendor',
     enforce: 'pre',
     configureServer(server) {
-      server.middlewares.use('/vendor', (req, res, next) => {
-        // Remove query strings e garante que não comece com / para o path.join funcionar no Windows
-        const cleanUrl = req.url.split('?')[0].replace(/^\//, '');
-        const filePath = path.join(__dirname, '../../vendor', cleanUrl);
+      // Usamos um middleware genérico que verifica se a URL contém "/vendor/"
+      server.middlewares.use((req, res, next) => {
+        if (req.url.includes('/vendor/')) {
+          // Extrai apenas o que vem depois de /vendor/
+          const vendorPath = req.url.substring(req.url.indexOf('/vendor/') + 8).split('?')[0];
+          const filePath = path.join(__dirname, '../../vendor', vendorPath);
 
-        if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
-          const ext = path.extname(filePath);
-          const mimeTypes = {
-            '.css': 'text/css',
-            '.js': 'application/javascript',
-            '.png': 'image/png',
-            '.jpg': 'image/jpeg',
-            '.svg': 'image/svg+xml',
-            '.woff': 'font/woff',
-            '.woff2': 'font/woff2',
-            '.ttf': 'font/ttf',
-            '.eot': 'application/vnd.ms-fontobject'
-          };
-          res.setHeader('Content-Type', mimeTypes[ext] || 'text/plain');
-          res.setHeader('Access-Control-Allow-Origin', '*');
-          res.end(fs.readFileSync(filePath));
-        } else {
-          next();
+          if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+            const ext = path.extname(filePath);
+            const mimeTypes = {
+              '.css': 'text/css',
+              '.js': 'application/javascript',
+              '.png': 'image/png',
+              '.jpg': 'image/jpeg',
+              '.svg': 'image/svg+xml',
+              '.woff': 'font/woff',
+              '.woff2': 'font/woff2',
+              '.ttf': 'font/ttf',
+              '.eot': 'application/vnd.ms-fontobject'
+            };
+            res.setHeader('Content-Type', mimeTypes[ext] || 'text/plain');
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            return res.end(fs.readFileSync(filePath));
+          }
         }
+        next();
       });
     }
   };
@@ -43,7 +45,7 @@ function serveVendorPlugin() {
 
 export default defineConfig({
   plugins: [react(), serveVendorPlugin()],
-  base: '/sicaac/', // Importante: mantém o sicaac isolado
+  base: '/sicaac/', 
   server: {
     port: 5174,
     fs: {

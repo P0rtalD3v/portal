@@ -1,0 +1,17 @@
+# Lista de arquivos cruciais para a configuração
+$filesToCat = "index.html", "vite.config.js", "package.json", "src/App.jsx", "src/main.jsx"
+
+if (Test-Path "comparativo_config.txt") { Remove-Item "comparativo_config.txt" }
+
+Get-ChildItem -Path "apps/portal", "apps/sicaac" -Recurse -File | 
+Where-Object { ($filesToCat -contains $_.Name) -or ($_.FullName -match "src/App.jsx") } | 
+Where-Object { $_.FullName -notmatch "node_modules" } | 
+ForEach-Object { 
+    "==================================================" | Out-File -FilePath "comparativo_config.txt" -Append
+    "ARQUIVO: $($_.FullName)" | Out-File -FilePath "comparativo_config.txt" -Append
+    "==================================================" | Out-File -FilePath "comparativo_config.txt" -Append
+    Get-Content $_.FullName | Out-File -FilePath "comparativo_config.txt" -Append
+    "`n`n" | Out-File -FilePath "comparativo_config.txt" -Append
+}
+
+Write-Host "Arquivo 'comparativo_config.txt' gerado com sucesso!" -ForegroundColor Green
