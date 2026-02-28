@@ -1,0 +1,19 @@
+dpyportal:
+	docker build -t portal:dev ./apps/portal
+	k3d image import portal:dev -c devcluster
+	kubectl -n portal rollout restart deploy/portal
+	kubectl -n portal rollout status deploy/portal
+
+openportal:
+	kubectl -n portal port-forward svc/portal 8080:80
+
+getestrutura:
+	Get-ChildItem -Recurse -File | Where-Object { $_.FullName -notmatch '\\\.git|\\node_modules|\\__pycache__|\\venv' } | Select-Object -ExpandProperty FullName > estrutura_projeto.txt
+
+rportal:
+	cd apps\portal
+	npm run dev
+
+rsicaac:
+	cd apps\sicaac
+	npm run dev

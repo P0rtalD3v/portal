@@ -1,0 +1,147 @@
+image: node:20.11-alpine
+
+cache:
+  paths:
+    - node_modules/
+    - public
+
+stages:
+  - Dependências
+  - Qualidade
+  - Build
+  - Pages
+  - Release
+
+Instalar dependências:
+  stage: Dependências
+  artifacts:
+    paths:
+      - node_modules
+    expire_in: 1 hour
+  script:
+    - apk --no-cache add git
+    - npm install
+  rules:
+    - when: always
+
+CSS:
+  stage: Qualidade
+  artifacts:
+    when: always
+    paths:
+      - report-stylelint.txt
+    expire_in: 1 week
+  script:
+    - npx stylelint src/**/*.scss  --formatter verbose --output-file report-stylelint.txt
+
+Markdown:
+  stage: Qualidade
+  artifacts:
+    when: always
+    paths:
+      - report-markdownlint.txt
+    expire_in: 1 week
+    expose_as: "Markdownlint Report"
+  before_script:
+    - npm i -g markdownlint-cli
+  script:
+    - markdownlint '**/*.md' -o report-markdownlint.txt
+  rules:
+    - when: always
+
+Commits:
+  stage: Qualidade
+  artifacts:
+    when: always
+    paths:
+      - report-commitlint.txt
+    expire_in: 1 week
+    expose_as: "Commitlint Report"
+  script:
+    - npx commitlint-gitlab-ci -x @govbr-ds/commitlint-config > report-commitlint.txt
+  rules:
+    - when: always
+
+DS:
+  stage: Build
+  artifacts:
+    paths:
+      - dist
+    expire_in: 1 week
+  script:
+    - npm install
+    - npm run build
+  only:
+    - main
+    - next
+    - merge_requests
+    - /\d.(\d|x).(\d|x)(-alpha)?$/
+    - /alpha$/
+
+pagesmain:
+  stage: Pages
+  artifacts:
+    paths:
+      - public
+    expire_in: 1 week
+    expose_as: "Build"
+  script:
+    - rm -rf public
+    - npm install
+    - npm run build
+    - mv dist public
+  only:
+    - main
+
+pages:
+  stage: Pages
+  script:
+    - mkdir -p tmp
+    - echo "$CI_COMMIT_REF_NAME"
+    - echo "$CI_COMMIT_REF_NAME" > tmp/index.html
+    - mkdir -p public
+    - mkdir -p public/$CI_COMMIT_REF_NAME/
+    - npm install
+    - npm run build
+    - cp dist/* public/$CI_COMMIT_REF_NAME/ -R
+    - ls public/$CI_COMMIT_REF_NAME/
+  artifacts:
+    name: "$CI_COMMIT_REF_NAME"
+    paths:
+      - public
+    expire_in: 5 days
+  only:
+    - merge_requests
+
+    
+Semantic Release:
+  stage: Release
+  # 🔑 MUDANÇA PRINCIPAL: Use Debian Slim em vez de Alpine
+  image: node:22-slim
+  when: manual
+  environment:
+    name: production
+  # Você pode manter as variáveis LC_ALL/LANG e libc6-compat por segurança, 
+  # mas a necessidade delas DIMINUI MUITO ao usar a imagem slim.
+  variables:
+    LC_ALL: "en_US.UTF-8"
+    LANG: "en_US.UTF-8"
+  artifacts:
+    paths:
+      - dist
+    expire_in: 1 week
+  before_script:
+    # ❌ Remova apk add libc6-compat (não é necessário no Debian/Slim)
+    # ⚠️ Mude apk add git para apt-get update && apt-get install -y git
+    - apt-get update && apt-get install -y git
+    - corepack enable
+    - pnpm install
+    - pnpm up @semantic-release/release-notes-generator@latest conventional-changelog-writer@latest
+  script:
+    - npx semantic-release
+
+  only:
+    - main
+    - next
+    - /\d.(\d|x).(\d|x)(-alpha)?$/
+    - /alpha$/

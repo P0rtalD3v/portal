@@ -1,0 +1,65 @@
+---
+# 1. Definição do Armazenamento (Persistent Volume Claim)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: portalbdep
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi  # Reserva 5GB de disco para o banco
+
+---
+# 2. Deployment do PostgreSQL
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: portalbdep-db
+  namespace: portalbdep
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: portalbdep-db
+  template:
+    metadata:
+      labels:
+        app: portalbdep-db
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15
+        env:
+        - name: POSTGRES_DB
+          value: portalbdep_db
+        - name: POSTGRES_USER
+          value: portalbdep_user
+        - name: POSTGRES_PASSWORD
+          value: portalbdep_pass  # No futuro, usare Secrets
+        ports:
+        - containerPort: 5432
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+      volumes:
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: postgres-pvc
+
+---
+# 3. Serviço para expor o Banco de Dados internamente
+apiVersion: v1
+kind: Service
+metadata:
+  name: portalbdep-db-service
+  namespace: portalbdep
+spec:
+  selector:
+    app: portalbdep-db
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432

@@ -1,0 +1,50 @@
+---
+# 1. Deployment do Backend (portalbdep API)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: portalbdep-backend
+  namespace: portalbdep
+spec:
+  replicas: 1 # Inicialmente 1, aumentar depois
+  selector:
+    matchLabels:
+      app: portalbdep-backend
+  template:
+    metadata:
+      labels:
+        app: portalbdep-backend
+    spec:
+      containers:
+      - name: backend
+        image: python:3.11-slim # Imagem base começando do zero
+        command: ["/bin/sh", "-c", "sleep infinity"] # Mantém o pod vivo para entrar e codar
+        env:
+        # Configurações de conexão com o banco que criado no arquivo 02
+        - name: DB_HOST
+          value: "portalbdep-db-service"
+        - name: DB_NAME
+          value: "portalbdep_db"
+        - name: DB_USER
+          value: "portalbdep_user"
+        - name: DB_PASS
+          value: "portalbdep_pass"
+        - name: DB_PORT
+          value: "5432"
+        ports:
+        - containerPort: 5000 # Porta padrão da API
+
+---
+# 2. Serviço para o Backend
+apiVersion: v1
+kind: Service
+metadata:
+  name: portalbdep-backend-service
+  namespace: portalbdep
+spec:
+  selector:
+    app: portalbdep-backend
+  ports:
+    - protocol: TCP
+      port: 5000
+      targetPort: 5000

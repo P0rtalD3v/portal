@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: portalbdep-nginx-config
+  namespace: portalbdep
+data:
+  nginx.conf: |
+    server {
+        listen 80;
+        server_name localhost;
+
+        # 1. Vendor Global - Servindo a pasta vendor compartilhada
+        location /vendor/ {
+            alias /usr/share/nginx/vendor/;
+        }
+
+        # 2. Módulo SICAAC (Micro Frontend)
+        location /sicaac/ {
+            alias /usr/share/nginx/sicaac/;
+            try_files $uri $uri/ /sicaac/index.html;
+        }
+
+        # 3. Módulo Portal (Vitrine / Raiz)
+        location / {
+            root /usr/share/nginx/html;
+            index index.html index.htm;
+            try_files $uri $uri/ /index.html;
+        }
+
+        # 4. Backend Proxy - API
+        location /api {
+            proxy_pass http://portalbdep-backend-service:5000;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+    }
